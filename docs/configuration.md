@@ -2,9 +2,9 @@
 
 ## 配置从哪里来
 
-`Settings.load()` 只解析明确给定的 `.env`，不会在导入包时读取环境，也不修改 `os.environ`。
-这样多个 Harness 实例可以使用不同工作目录和配置，单元测试也不必放置真实 key。
-`Settings.api_key` 不出现在对象 repr 中。不要把 `.env` 或包含明文认证信息的 `mcp.json` 提交到仓库。
+我把配置集中在 `Settings.load()` 中读取，方便切换模型和工作目录。它读取指定的 `.env`，
+不会在导入包时修改 `os.environ`。`Settings.api_key` 不出现在对象 repr 中，
+本地 `.env` 和 `mcp.json` 已加入 `.gitignore`。
 
 | 配置项 | 说明 |
 | --- | --- |
@@ -15,7 +15,7 @@
 | `OPENAI_API_MODE` | `responses` 或 `chat_completions` |
 | `HARNESS_MAX_TOKENS` | 初始输出 token 上限；截断时最多尝试翻倍 |
 | `HARNESS_MAX_STEPS` | 每次 Agent 调用的模型轮数上限，默认 100 |
-| `HARNESS_CONTEXT_CHARS` | 历史字符估算预算，不是精确 tokenizer token 数 |
+| `HARNESS_CONTEXT_CHARS` | 按字符数估算的历史长度预算 |
 | `HARNESS_REQUEST_TIMEOUT` | SDK 单次网络请求超时秒数 |
 | `HARNESS_MAX_RETRIES` | 网络/限流等瞬态失败的有限重试次数 |
 | `HARNESS_FALLBACK_MODEL` | 可选，同一 provider 的备用模型 |
@@ -25,7 +25,7 @@
 | `HARNESS_MCP_CONFIG` | 相对于 workspace 的配置路径，默认 `mcp.json` |
 
 保留旧教程 `MODEL_ID` 作为未设置 provider 专属模型时的兼容回退。
-不同 provider 的网关协议互不推断；填写 Anthropic key 并不代表能使用 OpenAI 协议的 URL。
+模型密钥、网关地址和 API 模式需要属于同一套服务协议。
 
 ## 两种 OpenAI 接口
 
@@ -46,8 +46,7 @@ OPENAI_MODEL=your-provider-model-id
 OPENAI_API_KEY=在本地填写
 ```
 
-并非每个模型都支持两种 API；例如官方 GPT-6 Astra 的工具调用要求 Responses。
-请按模型和服务商的实际协议配置，而不是只修改模型名称。
+API 模式按模型和服务商的协议选择，例如官方 GPT-6 Astra 的工具调用使用 Responses。
 
 Anthropic 使用 Messages API；原生响应内容被保存，便于后续工具轮回传。
 定义格式依据 [Anthropic tool definitions](https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools)。
@@ -83,7 +82,7 @@ Anthropic 使用 Messages API；原生响应内容被保存，便于后续工具
 也可以直接填 Python 可执行文件的绝对路径。`env` 字段可以把指定变量传给 stdio 子进程。
 `${NAME}` 使用配置解析时传入的环境映射；Harness 将本地 `.env` 与进程环境合并后传入，进程环境优先。
 
-`read_only_tools` 是**宿主维护的精确工具名列表**，不是服务器自报的 `readOnlyHint`。
+`read_only_tools` 由宿主配置，使用精确工具名；服务器自报的 `readOnlyHint` 不参与授权。
 不在列表内的外部工具需要用户批准；队友和异步轮次无法自行越过该审批。
 服务器工具名被规范化成 `mcp__server__tool`；重复或规范化冲突会拒绝连接，并回滚该次注册。
 
@@ -92,11 +91,10 @@ Anthropic 使用 Messages API；原生响应内容被保存，便于后续工具
 当前依赖范围为维护中的 `mcp>=1.28,<2`，实际验证版本见 `requirements.lock`；
 升级 v2 应独立验证适配，参考 [MCP Python SDK](https://github.com/modelcontextprotocol/python-sdk/tree/v1.x)。
 
-## 长期运行的配置含义
+## 记忆与定时任务
 
-记忆功能会产生额外模型请求：有已有条目时选择相关记录，一轮完成后提取，达到阈值后合并。
-排错、快速原型或预算敏感时可以设置 `HARNESS_MEMORY=false`。
-上下文摘要、subagent 和 teammate 也会调用模型；它们不是免费的本地字符串操作。
+记忆功能会调用模型选择相关记录、提取新信息，并在达到阈值后合并。上下文摘要、subagent
+和 teammate 也会产生模型请求。只调试主循环时，可以设置 `HARNESS_MEMORY=false` 关闭记忆。
 
-cron 仅在 Harness 进程运行时触发。`durable=true` 会保留任务，重启后投递待确认工作；
-这不等于注册系统 crontab。`run` 一轮结束就退出，需要持续调度时请使用 `chat` 或嵌入宿主事件泵。
+cron 随 Harness 进程运行，`durable=true` 会保存任务，供重启后继续投递。
+持续调度使用 `chat` 或嵌入宿主的事件泵；一次性 `run` 在本轮结束后退出。

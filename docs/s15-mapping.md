@@ -1,17 +1,17 @@
 # s15 机制与新框架的对应关系
 
-本项目以 [shareAI-lab/learn-claude-code](https://github.com/shareAI-lab/learn-claude-code) 的 `s15_integrated_harness` 为核心进行结构化改写。参考版本固定为 **`0dcafa2ae053a1ddd6a72f265431104b08a5aa13`**，便于逐项查阅而不受上游 `main` 后续变化影响。
+学完 [shareAI-lab/learn-claude-code](https://github.com/shareAI-lab/learn-claude-code) 后，我以 `s15_integrated_harness` 为基础，把集成在一个文件里的代码整理成了这个项目。这份对照记录了原来的功能分别搬到了哪里，方便回头阅读和比较。参考版本是 **`0dcafa2ae053a1ddd6a72f265431104b08a5aa13`**，链接都固定到这次提交。
 
 - [该版本的 s15 代码](https://github.com/shareAI-lab/learn-claude-code/blob/0dcafa2ae053a1ddd6a72f265431104b08a5aa13/s15_integrated_harness/code.py)
 - [该版本的 s15 中文说明](https://github.com/shareAI-lab/learn-claude-code/blob/0dcafa2ae053a1ddd6a72f265431104b08a5aa13/s15_integrated_harness/README.zh.md)
 - [s15 原先引用的 s09 记忆代码](https://github.com/shareAI-lab/learn-claude-code/blob/0dcafa2ae053a1ddd6a72f265431104b08a5aa13/s09_memory/code.py)
 - [上游 MIT 许可证](https://github.com/shareAI-lab/learn-claude-code/blob/0dcafa2ae053a1ddd6a72f265431104b08a5aa13/LICENSE)
 
-本项目沿用 MIT 许可并保留上游来源和版权声明。这里说明的是机制和职责的对应关系，**不宣称逐行行为等同，也不保证原始状态文件或每个工具参数可以直接兼容**。没有引入 s16/s17 的额外课程机制。
+本项目沿用 MIT 许可，并保留上游来源和版权声明。状态文件和部分工具参数在拆分时做了调整，旧数据的迁移说明见下文。
 
 ## 1. 原版 26 个 Lead 内置工具
 
-上游 `BUILTIN_TOOLS` 的实际定义是 26 个；其 README 的个别对照表可能仍写作 25。以下以固定提交的代码定义为准。新框架保留这 26 个工具名，将注册和实现放到职责对应的模块中。
+按该版本的 `BUILTIN_TOOLS` 定义，Lead 有 26 个内置工具。我保留了这些工具名，将注册和实现放到各自负责的模块中。
 
 | # | s15 工具 | 新框架的注册/执行入口 | 说明 |
 |---:|---|---|---|
@@ -42,7 +42,7 @@
 | 25 | `create_worktree` | [`tasks/worktrees.py`](../src/mini_agent_harness/tasks/worktrees.py) | 为未认领任务建立并验证独立 checkout，分支为 harness/name |
 | 26 | `connect_mcp` | [`mcp/client.py`](../src/mini_agent_harness/mcp/client.py) | 由 mock 改为连接宿主配置中的真实服务器；连接本身需前台审批 |
 
-### 新工具数量如何计算
+### MCP 管理工具与角色分工
 
 新框架额外注册两个 MCP 管理工具：
 
@@ -53,7 +53,7 @@
 
 因此，未连接远程服务器时 Lead 的工具集是 **26 + 2 = 28** 个。远程工具在连接后动态增加，数量由服务器发现结果决定。
 
-`submit_plan` 是**队友专用工具**。原 s15 就在 `spawn_teammate_thread()` 内为队友定义了这个工具，它原本不属于 Lead 的 26 个 `BUILTIN_TOOLS`；新框架把它显式注册到统一注册表，但仍只对 `teammate` 开放。它不应被算成“新增的第 29 个 Lead 工具”。所有角色工具定义的并集在连接 MCP 前为 29 个，各角色实际看到的集合不同。
+`submit_plan` 是**队友专用工具**，原 s15 在 `spawn_teammate_thread()` 内定义。现在它也放进统一注册表，但只对 `teammate` 开放。连接 MCP 前，所有角色合计有 29 个工具定义，Lead 实际可用的是其中 28 个。
 
 ## 2. 原有代码段如何拆分
 
@@ -81,19 +81,19 @@
 | `MCPClient` / mock server / 工具池拼装 | `mcp/config.py`、`mcp/client.py` | 真实传输、完整工具发现、动态注册/注销、连接生命周期 |
 | `async_event_loop()` | `Harness.poll()` + `cli.py` | 嵌入式 API 显式提供事件泵；CLI 等待通知后自动唤醒 |
 
-## 3. s09 记忆为什么必须独立移植
+## 3. 把 s09 记忆整理进项目
 
-原 s15 的 `load_memory_runtime()` 使用 `importlib` 加载相邻章节 `s09_memory/code.py`，再覆盖它的 `WORKDIR`、`MEMORY_DIR`、`client` 和 `MODEL`。因此只把 s15 分成多个文件仍然无法形成独立项目：记忆实现还留在课程仓库的另一个章节。
+梳理依赖时，我发现 s15 的 `load_memory_runtime()` 会用 `importlib` 加载相邻章节 `s09_memory/code.py`，再覆盖它的 `WORKDIR`、`MEMORY_DIR`、`client` 和 `MODEL`。要让项目独立运行，就需要把这部分记忆代码一起整理进来。
 
-新实现把记录格式、索引、相关记录选择、读取正文、持久信息提取、去重和合并全部放进 `MemoryStore`，并显式接收目录与 provider。它保留 s09 的四类知识记录和“只存后续会话有价值的信息”目标，同时加入清晰的验证和并发快照边界。运行时不需要安装课程仓库，也不修改任何 s09 模块全局变量。
+我把记录格式、索引、相关记录选择、读取正文、信息提取、去重和合并放进 `MemoryStore`，由调用方传入目录与 provider。它保留 s09 的四类知识记录，只保存对后续会话有价值的信息，同时增加数据校验和合并时的并发检查。运行时不再依赖课程仓库。
 
-这里是机制移植与重新组织，不能将新 `.harness/memory` 目录视作原 `.memory` 的自动迁移器。原任务、邮箱、定时和会话文件也没有自动迁移入口；要保留旧状态，应先备份，再根据新记录结构进行显式转换。
+旧 `.memory` 以及任务、邮箱、定时和会话文件目前没有自动迁移入口。保留旧状态时，需要先备份，再按新记录结构转换后写入 `.harness/`。
 
 ## 4. 新增的模型接口与真实 MCP
 
 模型接口新增了 `OpenAIProvider`，支持 `responses` 与 `chat_completions` 两种明确配置的模式。Responses 使用完整本地历史、`store=False` 和原生输出回传；Chat 模式把内部工具结果转换为 `role=tool`。Anthropic Messages 仍是完整适配器，兼容自定义 base URL。切换 provider 发生在应用配置处，不改变文件工具、任务或团队代码。
 
-这不是对所有第三方网关的兼容承诺。网关仍需实际支持所选 API 形状、工具 schema 和模型参数；无效工具参数会作为协议错误拒绝，不能默认成空对象后执行。
+使用第三方网关时，需要确认它支持所选 API、工具 schema 和模型参数。返回无效工具参数时，框架会报告协议错误并停止这次工具执行。
 
 MCP 从两个进程内 mock 服务变为真实 `stdio` 和 Streamable HTTP 客户端：
 
@@ -105,20 +105,20 @@ MCP 从两个进程内 mock 服务变为真实 `stdio` 和 Streamable HTTP 客�
 
 只有宿主配置 `read_only_tools` 中的原始工具名可免去逐次确认。远程 `readOnlyHint` 或 description 都不能作为授权来源。当前工具结果主要是文本；图片、音频等非文本 MCP 结果保留类型提示，没有自动接入多模态展示。工具目录在连接时发现，服务器目录变化后需重新连接。
 
-## 5. 有意保留的机制与有意改变的行为
+## 5. 拆分时保留和调整了什么
 
 保留的主线是单一模型循环、工具结果配对、hooks、两层计划、长期记忆与技能、分层上下文压缩、错误恢复、后台执行、cron、一次性 subagent、持久队友、任务 worktree，以及动态外部工具。
 
-为形成可使用的独立框架，部分细节发生了变化：
+为了让各模块能独立运行和测试，我也调整了一些细节：
 
 - **运行状态集中在 `.harness/`。** worktree 仍在 `.worktrees/`；任务 ID、字段命名和部分持久格式改变，租约/版本成为任务记录的一部分。
 - **配置与生命周期显式。** Python API 与 CLI 共用 `Harness`，不再依赖脚本顶层的客户端、线程和环境副作用。
 - **工具参数和角色执行时验证。** 可见性之外仍有 JSON Schema 与权限检查；文件读取加入分页，todo 按会话/Agent 隔离。
 - **目录租约在完整工具组结束时释放。** 宿主有明确的 `before_step`、`before_tool`、`after_step` 协作点；旧计划不能跨任务生效。
-- **恢复策略重新整理。** 瞬态网络错误通过独立 provider 装饰器重试，超时和部分 5xx 也有处理；鉴权/参数错误不会被 fallback 掩盖。步骤数、输出预算和上下文预算可配置，并不复制原脚本的全部常量。
+- **恢复策略重新整理。** 瞬态网络错误通过独立 provider 装饰器重试，超时和部分 5xx 也有处理；鉴权/参数错误直接返回。步骤数、输出预算和上下文预算统一放进配置。
 - **cron 使用五字段解析库和显式时区。** durable 默认为启用；创建与取消属于需要前台批准的模型工具。交付确认指模型接收，不是任务完成。
 - **审批由宿主交互状态决定。** CLI 的模型循环可以运行在工作线程，仍由唯一的终端审批界面处理前台请求；异步 Agent 不争抢 stdin。
-- **MCP 接入是真实网络/进程资源。** 新增配置、连接/断开、超时和清理；不再提供假搜索结果或假部署结果来代替服务器调用。
-- **边界如实呈现。** worktree 不是沙箱，任务文件锁不等于多宿主调度，普通内存通知不具备 durable cron 的恢复语义。
+- **MCP 改为真实接入。** 增加服务器配置、连接和断开、超时及资源清理，工具请求通过网络或子进程发给服务器。
+- **运行限制。** worktree 只隔离工作副本，整个框架按单宿主运行；普通内存通知在进程退出后丢失，durable cron 才有持久化重投机制。
 
-这些变化让模块可以单独测试和扩展，也意味着验证应围绕公开协议、并发边界和实际行为，而不是要求新文件与原脚本逐行对应。架构关系和执行顺序见 [architecture.md](architecture.md)。
+拆分后，测试可以直接针对模型接口、任务认领、工具权限和消息交接等具体行为来写，排查问题时也更容易定位。模块之间怎么连接、一次请求按什么顺序执行，记录在 [架构说明](architecture.md) 中。

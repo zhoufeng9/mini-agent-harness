@@ -32,8 +32,8 @@ def load_config(path: Path, env: dict[str, str] | None = None) -> dict[str, Serv
 
     Harness 可把本地 .env 内容作为 env 显式传入，不必污染 os.environ。
     参数中缺失变量时报变量名，不打印字段值。
-    stdio SDK 只继承其保守的默认环境，再叠加显式 env；模型 API 密钥不会
-    因为我们复制整个 os.environ 而意外发送给任意 MCP 子进程。
+    stdio SDK 只继承其保守的默认环境，再叠加显式 env，避免将完整进程环境中的
+    模型 API 密钥传给 MCP 子进程。
     """
     path = Path(path)
     environment = dict(os.environ) if env is None else dict(env)

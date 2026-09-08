@@ -1,8 +1,11 @@
-# 开发、测试与运行边界
+# 开发与测试
+
+我把工具扩展、模型适配和运行状态分开处理，后续改功能时可以先找到对应模块。
+这里记录常用的扩展方式，以及测试时需要注意的地方。
 
 ## 怎样增加一个工具
 
-工具同时注册描述、JSON Schema、执行函数和可见角色，避免原版两张表逐渐不一致。
+工具的描述、参数、执行函数和可见角色放在同一个 `ToolSpec` 中注册，修改时只维护这一处定义。
 
 ```python
 from mini_agent_harness.core.types import ToolSpec, object_schema
@@ -57,7 +60,7 @@ worktree 需要工作目录本身是已有提交的 Git 仓库。创建会产生
 删除接口只提供给 Python 宿主：`app.worktrees.remove(name)` 会检查 owner、租约、后台占用与 Git 状态；
 丢弃改动需要 `discard_changes=True, confirmed=True`。删除工作副本后保留分支。
 
-## 并发与交付边界
+## 并发与任务恢复
 
 同一 lead 的消息列表通过锁串行访问；队友各持独立历史。每一组模型工具调用顺序执行，
 一次性 subagent 为上下文隔离，队友线程和显式后台命令提供并发。
@@ -84,7 +87,7 @@ ruff check .
 python -m build --no-isolation
 ```
 
-`requirements.lock` 记录本项目验证环境中的精确依赖版本，包含测试/构建工具。
+`requirements.lock` 记录测试环境中的依赖版本，包含测试和构建工具。
 需要复现该环境时可先 `pip install -r requirements.lock`，再 `pip install -e . --no-deps --no-build-isolation`。
 
 | 测试 | 验证内容 |
@@ -98,11 +101,10 @@ python -m build --no-isolation
 | `test_runtime.py` | 后台队列、cron 校验、重启恢复、ack 与失败重投 |
 | `test_mcp.py` | 真实 stdio/HTTP、分页、超时、错误、清理和名称冲突 |
 
-模型测试没有调用真实付费 API；验证的是转换契约和宿主行为，不代表用户账号连通性已验证。
-MCP 测试则执行真正的本地协议通信，HTTP 测试必须有本机端口绑定权限。
+模型适配测试使用 SDK 替身，检查消息转换、工具调用和异常处理；MCP 测试通过本地服务器
+检查实际通信。HTTP 测试需要允许绑定本机端口。
 
-## 范围
+## 后续扩展
 
-这是可继续开发的单机框架，包含 s15 的主要机制，未加入 Web UI、HTTP 宿主服务、Windows、
-分布式任务队列、容器隔离或 s16/s17 的 workflow/goal runtime。
-这些扩展可以通过现有服务协议实现，不需要把业务编排重新塞回模型循环。
+目前按单机、多线程组织运行，一个工作目录对应一个活跃 Harness。后续增加存储、交互入口或
+执行方式时，可以从对应服务的接口入手，保持主循环负责模型调用与结果回填。

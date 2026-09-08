@@ -1,9 +1,10 @@
 # mini-agent-harness
 
-一个可独立安装、运行和继续扩展的 Python Agent Harness。以
-[learn-claude-code 的 s15](https://github.com/shareAI-lab/learn-claude-code/tree/0dcafa2ae053a1ddd6a72f265431104b08a5aa13/s15_integrated_harness)
-为机制基线，把单文件中的模型循环、工具、上下文、任务、团队和异步运行拆成职责明确的模块。
-长期记忆由 s09 整理进本项目，运行时不需要原教程目录。
+这是我学完 [learn-claude-code](https://github.com/shareAI-lab/learn-claude-code) 后做的一个实战项目。
+我以 s15 为基础，把原来放在一个文件里的代码按职责拆开，保留了 26 个工具，
+也把它依赖的 s09 记忆模块整理了进来，做成一个可以独立运行、方便继续修改的 Python Agent Harness。
+
+搭建过程和一些体会写在 [实战复盘](docs/retrospective.md) 里，具体模块关系见 [架构说明](docs/architecture.md)。
 
 支持 **Anthropic、OpenAI Responses、OpenAI 兼容 Chat Completions**，以及真实 **MCP stdio / Streamable HTTP**。
 入口为命令行与 Python API；面向 **Python 3.11+、macOS / Linux**。
@@ -21,7 +22,7 @@ chmod 600 .env
 ```
 
 编辑 `.env`，填写自己实际使用的密钥、模型 ID 和可选网关地址。两套密钥可以同时填写，
-`HARNESS_PROVIDER` 决定本次使用哪一套。示例模型 ID 可按你的账号可用模型调整。
+`HARNESS_PROVIDER` 决定本次使用哪一套。模型 ID 按账号实际可用的模型填写。
 
 ```dotenv
 HARNESS_PROVIDER=anthropic
@@ -40,14 +41,14 @@ mini-agent run '阅读 README，解释这个项目的模块关系'
 mini-agent --provider openai chat
 ```
 
-`doctor` 只检查本地配置是否齐全，不验证账号余额或远程 API 连通性，也不打印密钥。
+`doctor` 检查本地配置是否齐全，只显示密钥是否已设置。
 无密钥也能运行完整的离线循环示例：
 
 ```bash
 python examples/offline_demo.py
 ```
 
-## 已包含的能力
+## 代码结构
 
 | 模块 | 作用 |
 | --- | --- |
@@ -61,8 +62,8 @@ python examples/offline_demo.py
 | `mcp/` | 真实服务器连接、工具发现、名称隔离、宿主白名单和连接清理 |
 | `app.py` / `cli.py` | 服务装配、资源生命周期、Python API 和终端输入协调 |
 
-每个模块都有中文说明和关键方法注释。推荐阅读顺序：
-`core/types.py → core/tools.py → core/agent.py → app.py`，再根据兴趣深入具体服务。
+阅读代码可以先沿着 `core/types.py → core/tools.py → core/agent.py → app.py`
+看完主流程，再进入各个功能模块。
 
 ## 命令行与工作目录
 
@@ -101,7 +102,6 @@ python examples/mcp_server.py --transport streamable-http --port 8765
 mini-agent mcp-check demo_http
 ```
 
-这里的 HTTP 是 MCP 客户端的连接方式与测试服务器，不是为 Harness 添加 Web 服务。
 服务器地址、命令和只读工具名单由本地 `mcp.json` 配置。真实授权信息使用 `${VARIABLE}`
 从 `.env` 或进程环境读取。完整说明见 [配置与 MCP](docs/configuration.md)。
 
@@ -130,19 +130,19 @@ ruff check .
 python -m build --no-isolation
 ```
 
-测试使用脚本模型或 SDK 测试替身，不调用付费模型 API；MCP 集成测试会启动本地真实服务器，
+模型适配使用脚本模型或 SDK 替身测试；MCP 集成测试会启动本地服务器，
 worktree 测试会创建临时 Git 仓库。HTTP 测试需要允许绑定 `127.0.0.1` 端口。
 
+- [实战复盘](docs/retrospective.md)
 - [架构与执行流程](docs/architecture.md)
 - [s15 到模块的映射](docs/s15-mapping.md)
 - [配置、模型与 MCP](docs/configuration.md)
 - [开发、测试与运行边界](docs/development.md)
 
-本项目保留 s15 的主要机制并重构实现；不是原脚本的逐行兼容替代，也没有加入 s16/s17。
 `.harness/` 存放本地任务、记忆、调度和会话，`.worktrees/` 存放任务工作副本。
 它们与 `.env`、本地 `mcp.json` 均被 Git 忽略。仓库只分发 `.env.sample` 和 MCP 示例配置。
 
 ## 来源与许可证
 
-基于 shareAI Lab 的 MIT 许可教程整理与扩展，保留原作者版权声明，详见 [LICENSE](LICENSE)
-和 [NOTICE](NOTICE)。上游基线提交为 `0dcafa2ae053a1ddd6a72f265431104b08a5aa13`。
+感谢 shareAI Lab 的开源教程。本项目基于其 MIT 许可代码整理与扩展，保留原作者版权声明，
+详见 [LICENSE](LICENSE) 和 [NOTICE](NOTICE)。参考提交为 `0dcafa2ae053a1ddd6a72f265431104b08a5aa13`。

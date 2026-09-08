@@ -5,6 +5,7 @@
 也把它依赖的 s09 记忆模块整理了进来，做成一个可以独立运行、方便继续修改的 Python Agent Harness。
 
 搭建过程和一些体会写在 [实战复盘](docs/retrospective.md) 里，具体模块关系见 [架构说明](docs/architecture.md)。
+想顺着一次输入看代码和数据怎么流转，可以读 [完整工作流程](docs/workflow.md)。
 
 支持 **Anthropic、OpenAI Responses、OpenAI 兼容 Chat Completions**，以及真实 **MCP stdio / Streamable HTTP**。
 入口为命令行与 Python API；面向 **Python 3.11+、macOS / Linux**。
@@ -134,6 +135,7 @@ python -m build --no-isolation
 worktree 测试会创建临时 Git 仓库。HTTP 测试需要允许绑定 `127.0.0.1` 端口。
 
 - [实战复盘](docs/retrospective.md)
+- [完整工作流程：从用户输入到结果返回](docs/workflow.md)
 - [架构与执行流程](docs/architecture.md)
 - [s15 到模块的映射](docs/s15-mapping.md)
 - [配置、模型与 MCP](docs/configuration.md)

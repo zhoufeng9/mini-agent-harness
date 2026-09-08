@@ -1,0 +1,11 @@
+mini-agent-harness
+
+Mechanisms adapted and restructured from:
+  https://github.com/shareAI-lab/learn-claude-code
+  Baseline commit: 0dcafa2ae053a1ddd6a72f265431104b08a5aa13
+  s15_integrated_harness/code.py and s09_memory/code.py
+  Copyright (c) 2024 shareAI Lab — MIT License
+
+This independent framework adds explicit service boundaries, provider adapters,
+real MCP transports, packaging, Chinese documentation and behavior tests.
+It is not an official shareAI Lab, Anthropic or OpenAI product.

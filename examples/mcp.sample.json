@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "demo": {
+      "transport": "stdio",
+      "command": "python",
+      "args": ["examples/mcp_server.py"],
+      "cwd": ".",
+      "timeout": 30,
+      "read_only_tools": ["add", "echo", "wait_seconds", "fail"]
+    },
+    "demo_http": {
+      "transport": "streamable-http",
+      "url": "http://127.0.0.1:8765/mcp",
+      "timeout": 30,
+      "read_only_tools": ["add", "echo", "wait_seconds", "fail"]
+    }
+  }
+}
